@@ -22,7 +22,7 @@ import org.onosproject.net.Port;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.host.HostService;
 import org.slf4j.Logger;
-
+import org.onlab.packet.IpAddress.*;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.util.*;
@@ -72,15 +72,18 @@ public class StatoRete {
 
         deviceService.addListener(deviceListener);
         hostService.addListener(hostListener);
-        log.info("Started network reader and Listeners Activated.");
+        log.info("----------------------->>>>>>>> Started network reader and Listeners Activated.");
 
 
         try {
             for (Host ho : hostService.getHosts()) {
-                canale.createChannel(cookielogin, ho.id().toString(), ho.mac().toString());
+                canale.createChannel(cookielogin, ho.id().toString(), ho.mac().toString(), ho.ipAddresses());
+
+
+
             }
             for (Device dev : deviceService.getAvailableDevices()) {
-                canale.createChannel(cookielogin, dev.id().toString(), " ");
+                canale.createChannel(cookielogin, dev.id().toString(), " ",  null);
             }
         } catch (Exception e) {
             e.printStackTrace();

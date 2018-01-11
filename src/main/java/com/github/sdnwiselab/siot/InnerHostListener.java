@@ -23,6 +23,7 @@ import org.onosproject.net.host.HostEvent;
 import org.onosproject.net.host.HostListener;
 import org.onosproject.net.host.HostService;
 import org.slf4j.Logger;
+import org.onlab.packet.IpAddress;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -45,7 +46,7 @@ public class InnerHostListener implements HostListener {
             case HOST_ADDED:
                 host = event.subject();
                 try {
-                    canale.createChannel(StatoRete.cookie, host.id().toString(), host.mac().toString());
+                    canale.createChannel(StatoRete.cookie, host.id().toString(), host.mac().toString(), host.ipAddresses());
                     log.info("New host: " + host.id().toString() + " added and channel created.");
                 } catch (Exception e) {
                     e.printStackTrace();

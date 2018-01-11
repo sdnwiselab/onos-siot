@@ -23,7 +23,7 @@ import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
 import org.slf4j.Logger;
-
+import org.onlab.packet.IpAddress;
 import static org.slf4j.LoggerFactory.getLogger;
 
 @Component(immediate = true)
@@ -45,7 +45,7 @@ public class InnerDeviceListener implements DeviceListener {
             case DEVICE_ADDED:
                 device = event.subject();
                 try {
-                    canale.createChannel(StatoRete.cookie, device.id().toString(), " ");
+                    canale.createChannel(StatoRete.cookie, device.id().toString(), " ", null);
                     log.info("New device: " + device.id().toString() + " added and channel created.");
                 } catch (Exception e) {
                     e.printStackTrace();

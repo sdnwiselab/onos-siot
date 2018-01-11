@@ -4,9 +4,10 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
+import org.onlab.packet.Ip4Address;
 import org.onosproject.core.CoreService;
 import org.slf4j.Logger;
-
+import org.onlab.packet.IpAddress;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
@@ -83,30 +84,55 @@ public class CreateChannel implements CreateChannelService{
     }
 
     //Create the SIOT Channel with the host's Mac
-    protected void createChannel(String[] cookies, String name, String macAddress) throws Exception {
+    protected void createChannel(String[] cookies, String name, String macAddress, Set<IpAddress> ipAddress) throws Exception {
         SiotChannel canale = null;
+
         if (hostNames.contains(name)){
             log.info("Channel not created device or host already in the list.");
         }
         else {
-            String url = "http://platform.social-iot.org/channels";
-            String urlParameters = "utf8=%E2%9C%93&authenticity_token=" + URLEncoder.encode(cookies[1], "utf-8") + "&userlogin=&commit=Create New Channel";
-            HttpURLConnection con = postConnectionWithSiot(url, urlParameters, cookies);
-            DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-            wr.writeBytes(urlParameters);
-            wr.flush();
-            wr.close();
-            int responseCode = con.getResponseCode();
+            if (ipAddress==null){
+                String ipAddr=" ";
+                String url = "http://platform.social-iot.org/channels";
+                String urlParameters = "utf8=%E2%9C%93&authenticity_token=" + URLEncoder.encode(cookies[1], "utf-8") + "&userlogin=&commit=Create New Channel";
+                HttpURLConnection con = postConnectionWithSiot(url, urlParameters, cookies);
+                DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+                wr.writeBytes(urlParameters);
+                wr.flush();
+                wr.close();
+                int responseCode = con.getResponseCode();
 
-            //edit the new channel MAC and Name
-            List<String> ids = getIdChannels(cookies);
-            int dimension = ids.size() - 1;
-            String device = ids.get(dimension);
-            canale = new SiotChannel(name,macAddress);
-            String channelParameters =canale.getUrlParameters();
-            editChannels(cookies, device, channelParameters );
-            log.info("Channel with id: " + device + " and mac: " + macAddress + " Created");
-            hostNames.add(name);
+                //edit the new channel MAC and Name
+                List<String> ids = getIdChannels(cookies);
+                int dimension = ids.size() - 1;
+                String device = ids.get(dimension);
+                canale = new SiotChannel(name,macAddress,ipAddr);
+                String channelParameters =canale.getUrlParameters();
+                editChannels(cookies, device, channelParameters );
+                log.info("Channel with id: " + device + ", mac: " + macAddress +" and ip: "+ ipAddr+" Created");
+                hostNames.add(name);
+            }
+            else {
+                String ipAddr= ipAddress.iterator().next().toString();
+                String url = "http://platform.social-iot.org/channels";
+                String urlParameters = "utf8=%E2%9C%93&authenticity_token=" + URLEncoder.encode(cookies[1], "utf-8") + "&userlogin=&commit=Create New Channel";
+                HttpURLConnection con = postConnectionWithSiot(url, urlParameters, cookies);
+                DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+                wr.writeBytes(urlParameters);
+                wr.flush();
+                wr.close();
+                int responseCode = con.getResponseCode();
+
+                //edit the new channel MAC and Name
+                List<String> ids = getIdChannels(cookies);
+                int dimension = ids.size() - 1;
+                String device = ids.get(dimension);
+                canale = new SiotChannel(name,macAddress,ipAddr);
+                String channelParameters =canale.getUrlParameters();
+                editChannels(cookies, device, channelParameters );
+                log.info("Channel with id: " + device + ", mac: " + macAddress +" and ip: "+ ipAddr+" Created");
+                hostNames.add(name);
+            }
         }
 
     }
@@ -292,9 +318,16 @@ public class CreateChannel implements CreateChannelService{
 
         while (d.find()) {
             macaddress = d.group(1).toString();
+        }
+
+        String ipAddr = new String();
+        Pattern o = Pattern.compile("<td class=\"left\">Custom Field 13</td>    <td>(.*?)</td>");
+        Matcher k = o.matcher(response.toString());
+        while (k.find()) {
+               ipAddr = k.group(1).toString();
 
          }
-        String output[] = {name, macaddress};
+        String output[] = {name, macaddress, ipAddr};
         return output;
 
     }
@@ -334,7 +367,17 @@ public class CreateChannel implements CreateChannelService{
             macaddress = d.group(1).toString();
 
         }
-        canale= new SiotChannel(name, macaddress);
+
+        String ipAddr = new String();
+        Pattern o = Pattern.compile("<td class=\"left\">Custom Field 13</td>    <td>(.*?)</td>");
+        Matcher k = o.matcher(response.toString());
+
+
+        while (k.find()) {
+            macaddress = k.group(1).toString();
+
+        }
+        canale= new SiotChannel(name, macaddress, ipAddr);
         return canale;
 
     }

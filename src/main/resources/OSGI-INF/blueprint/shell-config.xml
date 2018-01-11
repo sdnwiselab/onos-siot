@@ -41,6 +41,14 @@
 		</command>
 
 		<command>
+	    	<action class="com.github.sdnwiselab.siot.cli.SiotMulticastGroupCommand"/>
+			<completers>
+	        	<ref component-id="channelIdCompleter"/>
+	        	<null/>
+	    	</completers>
+		</command>
+
+		<command>
 	    	<action class="com.github.sdnwiselab.siot.cli.DeleteAllChannelsCommand"/>
 		</command>
     </command-bundle>

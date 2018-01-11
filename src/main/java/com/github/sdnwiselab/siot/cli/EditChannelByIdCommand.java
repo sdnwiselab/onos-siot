@@ -43,7 +43,8 @@ public class EditChannelByIdCommand extends AbstractShellCommand {
             channelInfo = service.NameAndMacById(id, cookies);
             String name = channelInfo[0];
             String wf_mac_address = channelInfo[1];
-            channel = new SiotChannel(name, wf_mac_address);
+            String ipAddr= channelInfo[2];
+            channel = new SiotChannel(name, wf_mac_address,ipAddr);
             int i = 0;
             for (String parameter : parame) {
                 System.out.println("Type the " + parameter);

@@ -26,7 +26,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <onos.version>1.10.4-SNAPSHOT</onos.version>
+        <onos.version>1.10.7-SNAPSHOT</onos.version>
         <onos.app.name>com.github.sdnwiselab.siot</onos.app.name>
         <onos.app.title>SIoT</onos.app.title>
         <onos.app.origin>SDN-WISE Lab</onos.app.origin>

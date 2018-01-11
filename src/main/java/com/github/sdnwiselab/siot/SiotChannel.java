@@ -43,7 +43,7 @@ public class SiotChannel {
     public String field15;
     public String field16;
 
-    public SiotChannel(String id, String macAddress) {
+    public SiotChannel(String id, String macAddress, String ipAddr) {
 
         this.name = id;
         this.description = "";
@@ -81,7 +81,7 @@ public class SiotChannel {
         this.field10 = "";
         this.field11 = "";
         this.field12 = "";
-        this.field13 = "";
+        this.field13 = ipAddr;
         this.field14 = "";
         this.field15 = "";
         this.field16 = "";
