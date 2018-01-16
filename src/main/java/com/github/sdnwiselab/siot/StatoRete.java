@@ -81,6 +81,7 @@ public class StatoRete {
 
 
 
+
             }
             for (Device dev : deviceService.getAvailableDevices()) {
                 canale.createChannel(cookielogin, dev.id().toString(), " ",  null);
