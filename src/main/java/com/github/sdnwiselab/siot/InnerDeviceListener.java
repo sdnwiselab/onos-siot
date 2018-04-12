@@ -18,6 +18,7 @@ package com.github.sdnwiselab.siot;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
+import org.onlab.osgi.DefaultServiceDirectory;
 import org.onosproject.net.Device;
 import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
@@ -31,28 +32,25 @@ public class InnerDeviceListener implements DeviceListener {
 
     private final Logger log = getLogger(getClass());
 
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected DeviceService deviceService;
+   // @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+
+    protected DeviceService deviceService= DefaultServiceDirectory.getService(DeviceService.class);
     protected Device device;
-    protected CreateChannel canale = new CreateChannel();
+
 
 
     @Override
     public void event(DeviceEvent event) {
-        log.info("New device event.");
+        /*log.info("New device event.");*/
 
         switch (event.type()) {
             case DEVICE_ADDED:
                 device = event.subject();
-                try {
-                    canale.createChannel(StatoRete.cookie, device.id().toString(), " ", null);
-                    log.info("New device: " + device.id().toString() + " added and channel created.");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+
             case DEVICE_AVAILABILITY_CHANGED:
                 if (deviceService.isAvailable(event.subject().id())) {
                     log.info("Handler Device connected {}", event.subject().id());
+
                 }
                 break;
             /* TODO other cases

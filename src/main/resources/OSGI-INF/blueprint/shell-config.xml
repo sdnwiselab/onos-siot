@@ -16,21 +16,8 @@
 <blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0">
 
     <command-bundle xmlns="http://karaf.apache.org/xmlns/shell/v1.1.0">
-	 	<command>
-	    	<action class="com.github.sdnwiselab.siot.cli.DeleteByIdCommand"/>
-			<completers>
-	        	<ref component-id="channelIdCompleter"/>
-	        	<null/>
-	    	</completers>
-		</command>
+	 	
 
-		<command>
-	    	<action class="com.github.sdnwiselab.siot.cli.EditChannelByIdCommand"/>
-			<completers>
-	        	<ref component-id="channelIdCompleter"/>
-	        	<null/>
-	    	</completers>
-		</command>
 
 		<command>
 	    	<action class="com.github.sdnwiselab.siot.cli.GetRelationsByIdCommand"/>
@@ -40,18 +27,8 @@
 	    	</completers>
 		</command>
 
-		<command>
-	    	<action class="com.github.sdnwiselab.siot.cli.SiotMulticastGroupCommand"/>
-			<completers>
-	        	<ref component-id="channelIdCompleter"/>
-	        	<null/>
-	    	</completers>
-		</command>
-
-		<command>
-	    	<action class="com.github.sdnwiselab.siot.cli.DeleteAllChannelsCommand"/>
-		</command>
-    </command-bundle>
-    <bean id="channelIdCompleter" class="com.github.sdnwiselab.siot.cli.ChannelIdCompleter"/>
-
+	
+	</command-bundle>
+	<bean id="channelIdCompleter" class="com.github.sdnwiselab.siot.cli.ChannelIdCompleter"/>
+	 	
 </blueprint>

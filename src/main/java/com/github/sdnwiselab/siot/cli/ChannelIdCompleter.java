@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 package com.github.sdnwiselab.siot.cli;
-
-import com.github.sdnwiselab.siot.CreateChannelService;
+import com.github.sdnwiselab.siot.SIoTCastService;
 import org.apache.karaf.shell.console.Completer;
 import org.apache.karaf.shell.console.completer.StringsCompleter;
 import org.onosproject.cli.AbstractShellCommand;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -32,17 +30,13 @@ public class ChannelIdCompleter implements Completer {
     @Override
     public int complete(String buffer, int cursor, List<String> candidates) {
         // Delegate string completer
-        String[] cookies=null;
+
         List<String> ids = new ArrayList<String>();
         StringsCompleter delegate = new StringsCompleter();
-        CreateChannelService service = AbstractShellCommand.get(CreateChannelService.class);
-        try {
-            cookies = service.getCookie();}
-        catch (Exception e) {
-            e.printStackTrace();}
+        SIoTCastService service = AbstractShellCommand.get(SIoTCastService.class);
 
         try{
-            ids = service.getIdChannels(cookies);}
+            ids = service.getIdChannels();}
         catch (Exception e) {
             e.printStackTrace();}
 

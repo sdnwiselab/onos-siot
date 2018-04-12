@@ -32,7 +32,7 @@ public class InnerHostListener implements HostListener {
 
     private final Logger log = getLogger(getClass());
     protected Host host;
-    protected CreateChannel canale = new CreateChannel();
+
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected HostService hostService;
@@ -40,13 +40,13 @@ public class InnerHostListener implements HostListener {
 
     @Override
     public void event(HostEvent event) {
-        log.info("New host event.");
+        //log.info("New host event.");
 
         switch (event.type()) {
             case HOST_ADDED:
                 host = event.subject();
                 try {
-                    canale.createChannel(StatoRete.cookie, host.id().toString(), host.mac().toString(), host.ipAddresses());
+
                     log.info("New host: " + host.id().toString() + " added and channel created.");
                 } catch (Exception e) {
                     e.printStackTrace();
