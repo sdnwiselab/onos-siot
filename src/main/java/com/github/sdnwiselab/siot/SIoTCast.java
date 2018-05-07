@@ -13,6 +13,7 @@ import org.onosproject.incubator.net.virtual.VirtualNetworkListener;
 import org.onosproject.incubator.net.virtual.VirtualNetworkService;
 import org.onosproject.net.*;
 import org.onosproject.net.driver.Behaviour;
+import org.onosproject.net.host.*;
 import org.onosproject.net.mcast.McastRoute;
 import org.onosproject.net.mcast.MulticastRouteService;
 import org.onosproject.net.provider.ProviderId;
@@ -27,18 +28,17 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import org.apache.felix.scr.annotations.*;
 import org.onosproject.event.*;
-import org.onosproject.net.host.HostService;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.incubator.net.virtual.VirtualHost;
 import org.onosproject.net.HostLocation;
 import static org.slf4j.LoggerFactory.getLogger;
 import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
-
+import org.onosproject.net.provider.AbstractProvider;
 import java.util.EventListener;
 import java.util.concurrent.ThreadLocalRandom;
 
-
+//creare classe che extend abstract provider implements hostprovideservice, con providerregistry la registro tra i provider e poi chiamo il detecthost.
 
 @Component(immediate = true)
 @Service
@@ -58,15 +58,29 @@ public class SIoTCast implements SIoTCastService{
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ListenerService eventService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected HostProviderRegistry hostProviderRegistry;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected SiotProvider SiotProviderRegistry;
+
+
+
+
    // @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
    // protected VirtualNetworkService vnetService;
 
     @Activate
     protected void activate() {
+        log.info("//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////");
 
         this.hostListener = new InnerHostListener();
         this.deviceListener = new InnerDeviceListener();
         this.eventListener= new InnerVirtualHostListener();
+
+        Set<ProviderId> providerIds = hostProviderRegistry.getProviders();
+
+        log.info("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"+providerIds.toString());
 
         deviceService.addListener(deviceListener);
         hostService.addListener(hostListener);
@@ -76,29 +90,65 @@ public class SIoTCast implements SIoTCastService{
         List<String> hostData= new LinkedList<String>();
         IdAreas = new HashMap<>();
         int n=0;
-        NetworkId netid= NetworkId.networkId(1);
+       // NetworkId netid= NetworkId.networkId(1);
 
 
 
         try {
+            log.info("//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////");
 
             log.info(deviceService.getAvailableDevices().toString());
 
-
+            log.info("//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////");
             for (Device dev : deviceService.getAvailableDevices()) {
+                log.info("//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////");
                 n++;
                 IpAddress prova =IpAddress.valueOf("10.0.1."+n);
                 Set<IpAddress> s  = new HashSet<>();
                 s.add(prova);
 
                 String ids= "virtualDevice"+n;
+                log.info("//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////");
+
+                boolean c= true;
                 byte[] b= new byte[6];
                 new Random().nextBytes(b);
                 log.info(dev.toString());
+                HostId hId= HostId.hostId(ids);
+                HostDescription hDes= new HostDescription() {
+                    @Override
+                    public MacAddress hwAddress() {
+                        MacAddress mAdd = new MacAddress(b);
+                        return  mAdd;
+                    }
+
+                    @Override
+                    public VlanId vlan() {
+                        return null;
+                    }
+
+                    @Override
+                    public HostLocation location() {
+                        HostLocation hloc= new HostLocation(dev.id(), PortNumber.portNumber(81), System.currentTimeMillis()), s;
+                        return hloc;
+                    }
+
+                    @Override
+                    public Set<IpAddress> ipAddress() {
+                            return s;
+                    }
+
+                    @Override
+                    public SparseAnnotations annotations() {
+                        return null;
+                    }
+                };
+                log.info(hId.toString()+"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+                SiotProviderRegistry.hostDetected(hId, hDes,c );
+                log.info(hId.toString()+"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 
 
-
-
+/*
                 VirtualHost virtualHost = new VirtualHost() {
                     @Override
                     public NetworkId networkId() {
@@ -163,10 +213,10 @@ public class SIoTCast implements SIoTCastService{
                         new HostLocation(dev.id(), PortNumber.portNumber(8181), System.currentTimeMillis()), s) */
 
 
-            log.info(virtualHost.networkId().toString()+"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+          /*  log.info(virtualHost.networkId().toString()+"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
             log.info(virtualHost.ipAddresses().toString()+"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
             log.info(virtualHost.mac().toString()+"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-           // log.info(vnetService.getVirtualHosts(netid)+"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+           // log.info(vnetService.getVirtualHosts(netid)+"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");*/
             }
 
 
@@ -299,5 +349,14 @@ public class SIoTCast implements SIoTCastService{
         int areas =IdAreas.get(id);
         return areas;
     }
+
+   /* public void createHost(HostId hostId, HostLocation location, IpAddress hostIp) {
+        DefaultHostDescription description =new DefaultHostDescription(hostId.mac(), hostId.vlanId(), location, hostIp);
+        //hostProviderService.hostDetected(hostId, description, false);
+        log.info("VIRTUAL HOST CREATED WITH ID--------------------->"+hostId.toString());
+    }*/
+
+
+
 
 }
