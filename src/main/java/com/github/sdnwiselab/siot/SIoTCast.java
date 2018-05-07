@@ -374,10 +374,7 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
-import org.onlab.packet.EthType;
-import org.onlab.packet.IpAddress;
-import org.onlab.packet.MacAddress;
-import org.onlab.packet.VlanId;
+import org.onlab.packet.*;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.*;
@@ -386,11 +383,13 @@ import org.onosproject.net.config.NetworkConfigListener;
 import org.onosproject.net.config.NetworkConfigRegistry;
 import org.onosproject.net.config.basics.BasicHostConfig;
 import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.flow.*;
 import org.onosproject.net.host.DefaultHostDescription;
 import org.onosproject.net.host.HostDescription;
 import org.onosproject.net.host.HostProvider;
 import org.onosproject.net.host.HostProviderRegistry;
 import org.onosproject.net.host.HostProviderService;
+import org.onosproject.net.packet.PacketPriority;
 import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 import org.slf4j.Logger;
@@ -414,6 +413,9 @@ public class SIoTCast extends AbstractProvider implements HostProvider {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected DeviceService deviceService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    FlowRuleService flowRuleService;
 
     private ApplicationId appId;
     private static final String APP_NAME = "com.github.sdnwiselab.siot";
@@ -440,6 +442,7 @@ public class SIoTCast extends AbstractProvider implements HostProvider {
 
     @Deactivate
     protected void deactivate() {
+        flowRuleService.removeFlowRulesById(appId);
         providerRegistry.unregister(this);
         providerService = null;
         log.info("Stopped");
@@ -532,6 +535,26 @@ public class SIoTCast extends AbstractProvider implements HostProvider {
             addHost(new MacAddress(new byte[]{1, 2, 3, 4, 5, (byte)i}), VlanId.vlanId("None"),
                     new HostLocation(d.id(), PortNumber.portNumber(81), System.currentTimeMillis()),
                     s);
+
+
+            TrafficSelector selector = DefaultTrafficSelector.builder()
+                    .matchEthType(Ethernet.TYPE_IPV4)
+                    //.matchIPDst(IpPrefix.valueOf("10.0.1.115/24"))
+                    .build();
+            TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                    .setIpDst(IpAddress.valueOf("10.0.0.1"))
+                    .setOutput(PortNumber.portNumber(1))
+                    .build();
+
+            FlowRule fr = DefaultFlowRule.builder()
+                    .forDevice(d.id())
+                    .withSelector(selector)
+                    .withTreatment(treatment)
+                    .withPriority(PacketPriority.REACTIVE.priorityValue())
+                    .makePermanent()
+                    .fromApp(appId).build();
+
+            flowRuleService.applyFlowRules(fr);
         }
     }
 }
