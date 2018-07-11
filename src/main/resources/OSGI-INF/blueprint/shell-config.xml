@@ -23,6 +23,7 @@
 	    	<action class="com.github.sdnwiselab.siot.cli.GetRelationsByIdCommand"/>
 			<completers>
 	        	<ref component-id="channelIdCompleter"/>
+			<ref component-id="relationCompleter"/>
 	        	<null/>
 	    	</completers>
 		</command>
@@ -30,5 +31,6 @@
 	
 	</command-bundle>
 	<bean id="channelIdCompleter" class="com.github.sdnwiselab.siot.cli.ChannelIdCompleter"/>
+	<bean id="relationCompleter" class="com.github.sdnwiselab.siot.cli.RelationCompleter"/>
 	 	
 </blueprint>
