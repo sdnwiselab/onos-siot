@@ -14,15 +14,15 @@ import java.util.List;
 
 @Command(
         scope = "onos",
-        name = "getRelationsFromId",
-        description = "Return the relations of the channel"
+        name = "Firewall",
+        description = "Block all non SocioCast traffic for the selected Host"
 )
-public class GetRelationsByIdCommand extends AbstractShellCommand {
+public class SocioCastFirewallCommand extends AbstractShellCommand {
 
     @Argument(
             index = 0,
             name = "channelId",
-            description = "channel ID of source",
+            description = "Host ID of source",
             required = false,
             multiValued = false
     )
@@ -49,31 +49,19 @@ public class GetRelationsByIdCommand extends AbstractShellCommand {
 
     private HostService hostService;
     private SIoTCastService service;
-    private List<String> ids= new ArrayList<>();
 
     protected void execute() {
         try {
             log.info(relation);
             this.service = get(SIoTCastService.class);
             this.hostService= get(HostService.class);
-           /* for(Host host: hostService.getHosts()){
-                ids.add(host.id().toString());
-            }*/
-           // int areas=this.service.getAreasFromId(this.channelId);
-           // ids=this.service.getIpsFromId(this.channelId,areas,relation );
+
+
             Host sourceHost= service.getHostById(this.channelId);
             Ethernet uniPacket= packetForTheSIOTFlowRule(sourceHost); //CASO DI CREAZIONE DEL GRUPPO
             this.service.sendPacketForFlowRule(uniPacket,sourceHost);
 
-        //caso unicast
-          /*for (String id: ids){
-                Host ho= this.service.getHostById(id);
 
-                if (! this.channelId.equals( ho.id().toString())){
-                    Ethernet uniPacket= packetCreation(sourceHost,ho);   //CASO UNOICAST
-                    this.service.sendUniPacketToHost(uniPacket,sourceHost,ho);
-                }
-            }*/
 
         }
         catch (Exception var) {
@@ -85,13 +73,13 @@ public class GetRelationsByIdCommand extends AbstractShellCommand {
     public String getTypeOfRelationship(String relation) {
         String portA;
         switch (relation) {
-            case "OOR": portA="51";
+            case "OOR": portA="41";
                 break;
-            case "SOR": portA="52";
+            case "SOR": portA="42";
                 break;
-            case "CWOR": portA="53";
+            case "CWOR": portA="43";
                 break;
-            case "CLOR": portA="54";
+            case "CLOR": portA="44";
                 break;
             default:
                 throw new IllegalArgumentException("Invalid relationship");

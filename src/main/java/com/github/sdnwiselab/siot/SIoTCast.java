@@ -1,69 +1,35 @@
 package com.github.sdnwiselab.siot;
 
-import com.esotericsoftware.minlog.Log;
 import com.google.common.collect.Maps;
-import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.Deactivate;
-import org.apache.felix.scr.annotations.Reference;
-import org.apache.felix.scr.annotations.ReferenceCardinality;
+import org.apache.felix.scr.annotations.*;
 import org.onlab.packet.*;
 import org.onosproject.cluster.ControllerNode;
-import org.onosproject.cluster.DefaultControllerNode;
-import org.onosproject.cluster.NodeId;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
-import org.onosproject.core.GroupId;
-import org.onosproject.event.EventListener;
-import org.onosproject.incubator.net.intf.InterfaceService;
-import org.onosproject.incubator.net.routing.RouteService;
 import org.onosproject.net.*;
-import org.onosproject.net.behaviour.ControllerConfig;
-import org.onosproject.net.behaviour.ControllerInfo;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.*;
-import org.onosproject.net.flow.criteria.Criterion;
-import org.onosproject.net.flow.instructions.Instruction;
-import org.onosproject.net.flow.instructions.Instructions;
-import org.onosproject.net.host.DefaultHostDescription;
-import org.onosproject.net.host.HostDescription;
-import org.onosproject.net.host.HostProvider;
-import org.onosproject.net.host.HostProviderRegistry;
-import org.onosproject.net.host.HostProviderService;
-import org.onosproject.net.intent.IntentService;
-import org.onosproject.net.intent.Key;
-import org.onosproject.net.intent.SinglePointToMultiPointIntent;
-import org.onosproject.net.packet.*;
-import org.onosproject.net.provider.AbstractProvider;
-import org.onosproject.net.provider.ProviderId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import org.apache.felix.scr.annotations.Service;
-import org.onlab.packet.IpAddress;
-import org.onlab.packet.MacAddress;
-import org.onlab.packet.VlanId;
 import org.onosproject.net.host.*;
+import org.onosproject.net.intent.IntentEvent;
+import org.onosproject.net.intent.IntentListener;
+import java.util.concurrent.ThreadLocalRandom;
+import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.SinglePointToMultiPointIntent;
+import org.onosproject.net.mcast.McastRoute;
+import org.onosproject.net.mcast.MulticastRouteService;
+import org.onosproject.net.packet.*;
+import org.slf4j.Logger;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.*;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.util.concurrent.TimeUnit;
+import java.net.URL;
+import java.nio.ByteBuffer;
+import java.util.*;
 
-import org.onosproject.event.*;
-import org.onosproject.net.HostLocation;
 import static org.slf4j.LoggerFactory.getLogger;
-import org.onosproject.net.PortNumber;
-
-import javax.sound.midi.ControllerEventListener;
-import javax.sound.midi.ShortMessage;
 
 
 @Component(immediate = true)
@@ -91,6 +57,8 @@ public class SIoTCast implements SIoTCastService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PacketService packetService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected MulticastRouteService mcastRouteManager;
 
     private final Logger log = getLogger(getClass());
     protected SIoTVirtualHostProvider siotVirutalHostProvider;
@@ -100,15 +68,22 @@ public class SIoTCast implements SIoTCastService {
     private ApplicationId appId;
     private static final String APP_NAME = "com.github.sdnwiselab.siot";
     protected HostProviderService providerService;
-
     public Map<HostId, DeviceId> virtualHostMap = new HashMap<HostId, DeviceId>();
     public Map<HostId, String> hostIdentificationMap = new HashMap<HostId, String>();
     private List<HostId> virtualHostList = new LinkedList<HostId>();
     List<Host> hostsListToDevice = new ArrayList<>();
     Host virtualHost;
-    protected Map<DeviceId, Map<MacAddress, PortNumber>> macTables = Maps.newConcurrentMap();
     public Map<String, Integer> IdAreas;
     public String relationship;
+    private static Map<String, String> mGroupMap = new HashMap<>();
+    private List<String> ids= new ArrayList<>();
+    Set<DeviceId> collectionOfDevices= new HashSet<DeviceId>();
+    Map<HostId,PortNumber> mapHostPort=new HashMap<HostId,PortNumber>();
+    List<String> publishers=new ArrayList<>();
+    Map<Host,String> mapPublisherGroup= new HashMap<>();
+
+
+    protected Map<DeviceId, Map<MacAddress, PortNumber>> macTables = Maps.newConcurrentMap();
 
     @Activate
     protected void activate() {
@@ -124,11 +99,9 @@ public class SIoTCast implements SIoTCastService {
         packetService.addProcessor(packetProcessor, PacketProcessor.director(3));
         packetService.requestPackets(DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4).build(), PacketPriority.REACTIVE, appId);
-
         List<String> hostData = new LinkedList<String>();
         IdAreas = new HashMap<>();
         int n = 0;
-
         log.info("----------------------->>>>>>>> Started network reader and Listeners Activated.");
         try {
             log.info("////////////DEVICES////////////////DEVICES//////////DEVICES/////////////DEVICES//////////////DEVICES//////////////////////////////");
@@ -138,7 +111,7 @@ public class SIoTCast implements SIoTCastService {
             for (Device dev : deviceService.getAvailableDevices()) {
                 System.out.println(dev.id().toString());
                 n++;
-                createVirtualHost(dev,n);
+                //createVirtualHost(dev,n);
                 siotFlowRuleHandler(dev);
             }
 
@@ -146,32 +119,28 @@ public class SIoTCast implements SIoTCastService {
                 if (virtualHostList.contains(ho.id())) {
                     log.info(ho.id().toString() + "  is a virtual host");
                 } else {
-                    //int randomNum = ThreadLocalRandom.current().nextInt(0, 5);
-                    IdAreas.put(ho.id().toString(), 0);
+                    int randomNum = ThreadLocalRandom.current().nextInt(0, 3);
+                    IdAreas.put(ho.id().toString(), randomNum );
+
                     String ipAddr = ho.ipAddresses().toString();
                     String ipAddress = ipAddr.substring(1, ipAddr.length() - 1);
+                   // ids.add(ho.id().toString());   //DA TOGLIERE QUANDO SI USA IL SIOT SERVER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-                    hostData.add("{\"UID\":\"" + ho.id().toString() + "\",\"areas\":[0,0,0],\"meta\":\"Sensor\",\"ip\":\"" + ipAddress + "\"}");
+                    hostData.add("{\"UID\":\"" + ho.id().toString() + "\",\"areas\":["+randomNum+",0,0],\"meta\":\"Sensor\",\"ip\":\"" + ipAddress + "\"}");
                     hostIdentificationMap.put(ho.id(), ipAddress);
                 }
             }
-
-
             log.info("//////HOSTS////////////////HOSTS//////////////////HOSTS///////////HOSTS///////////HOSTS////////////HOSTS//////////////HOSTS///////");
             log.info(hostData.toString());
             log.info("//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////");
             postSIoTCast(hostData);
-
             for (Device dev : deviceService.getAvailableDevices()) {
                 getVirtualHostFromDevice(dev.id());
             }
-
-
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println(e.toString());
         }
-
     }
 
     @Deactivate
@@ -194,7 +163,6 @@ public class SIoTCast implements SIoTCastService {
 
     }
 
-
     //MI DA GLI HOST A PARTIRE DAL LORO ID
     public Host getHostById(String id) {
         Host ho = hostService.getHost(HostId.hostId(id));
@@ -207,7 +175,7 @@ public class SIoTCast implements SIoTCastService {
 
         try {
 
-            URL url = new URL("http://151.97.13.230:8080/Sim/SIoT/Server/List");
+            URL url = new URL("http://151.97.13.246:8080/Sim/SIoT/Server/List");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
@@ -268,19 +236,21 @@ public class SIoTCast implements SIoTCastService {
     }
 
     //CHIEDE AL SERVER SIOT LA LISTA DI HOST CHE VERIFICANO AL RELAZIONE SOCIALE
-    public List<String> getIpsFromId( String srcId, int areas) {
+    public List<String> getIpsFromId( String srcId, int areas, String relation, String hop) {
 
         List<String> finalOutput = new ArrayList<>();
+        //finalOutput.addAll(ids);
+        ids=new ArrayList<>();
 
         try {
 
-            URL url = new URL("http://151.97.13.230:8080/Sim/SIoT/Server/IpList");
+            URL url = new URL("http://151.97.13.246:8080/Sim/SIoT/Server/IpList");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             //String[] input = new String[] {relation,srcIp, Integer.toString(areas)};
-            String finalInput = "{\"rel\":\"" + relationship + "\",\"id\":\"" + srcId + "\",\"area\":" + Integer.toString(areas) + "}";
+            String finalInput = "{\"rel\":\"" + relation + "\",\"id\":\"" + srcId + "\",\"area\":"+Integer.toString(areas)+",\"hop\":"+hop+"}";
             OutputStream os = conn.getOutputStream();
             os.write(finalInput.getBytes());
             os.flush();
@@ -298,6 +268,7 @@ public class SIoTCast implements SIoTCastService {
                 output = output.replace(" ", "");
                 finalOutput = Arrays.asList(output.split(","));
                 System.out.println(finalOutput.toString() + "\n");
+                ids.addAll(finalOutput);
 
             }
             conn.disconnect();
@@ -308,7 +279,7 @@ public class SIoTCast implements SIoTCastService {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        System.out.println(finalOutput);
+        log.info(finalOutput.toString());
         return finalOutput;
     }
 
@@ -353,7 +324,7 @@ public class SIoTCast implements SIoTCastService {
 
     }
 
-    //MI DA IL VIRTUAL HOST OLLEGATO AL DEVICE
+    //MI DA IL VIRTUAL HOST COLLEGATO AL DEVICE
     public Host getVirtualHostFromDevice(DeviceId devid) {
 
         for (Map.Entry entry : virtualHostMap.entrySet()) {
@@ -365,10 +336,15 @@ public class SIoTCast implements SIoTCastService {
         return virtualHost;
     }
 
+    // MI RITORNA I PUBLIShERS
+    public List<String> getPublishers(){
+        return publishers;
+    }
+
     //CREA GLI INTENT PER IL MULTICAST
     public void creazioneIntent(DeviceId devId, String ipGroup, Map<HostId, PortNumber> mapHostPort, List<Device> dropDevice) {
         List<Port> ports = new ArrayList<>();
-        IpPrefix ipAddressGroup = IpPrefix.valueOf(ipGroup + "/32");
+        IpPrefix ipAddressGroup = IpPrefix.valueOf(ipGroup+"/32");
         ports.addAll(deviceService.getPorts(devId));
         Set<ConnectPoint> scp = new HashSet<ConnectPoint>();
         PortNumber portNumber = null;
@@ -403,6 +379,7 @@ public class SIoTCast implements SIoTCastService {
                     .build();
             intetnService.submit(siotIntetn);
         }
+
         for (Device dev : dropDevice) {
             TrafficSelector selector = DefaultTrafficSelector.builder()
                     .matchEthType(Ethernet.TYPE_IPV4)
@@ -477,25 +454,56 @@ public class SIoTCast implements SIoTCastService {
     }
 
     //MANDA I PACCHETTI NEL CASO SIOTCAST
-    public void sendMultiPacketToHost (Ethernet packet, Host sourceHost, String groupIp) {
-
-        Device sendDev= deviceService.getDevice(DeviceId.deviceId("of:0000000000000001"));
-        List<Port> ports = deviceService.getPorts(sendDev.id());
+    public void sendMultiPacketToHost (Ethernet packet, Host sourceHost, String groupIp, List<String> ids) {
+        Device sendDev=deviceConnectedToHost(sourceHost.id().toString());
+        List<PortNumber> ports = new ArrayList<>();
         String sourceIpAddr = sourceHost.ipAddresses().toString();
         String sourceIpAddress = sourceIpAddr.substring(1, sourceIpAddr.length() - 1);
         String destIpAddress = groupIp;
+        PortNumber sourcePortHost= sourceHost.location().port();
+        List<Host> hostsConnectedToDevice=allHostsConnectedToDevice(sendDev);
 
-        for (Port poor : ports) {
-            PortNumber portNumb = poor.number();
-            TrafficTreatment treatment = DefaultTrafficTreatment.builder()
-                    .setIpSrc(IpAddress.valueOf(sourceIpAddress))
-                    .setIpDst(IpAddress.valueOf(destIpAddress))
-                    .setOutput(portNumb).build();
+        List<Host> prova=new ArrayList<>();
+        for(String id:ids){
+            Host otherHost = getHostById(id);
+            prova.add(otherHost);
+        }
 
-            OutboundPacket outboundPacket = new DefaultOutboundPacket(sendDev.id(),
-                    treatment, ByteBuffer.wrap(packet.serialize()));
+        try {
+            prova.retainAll(hostsConnectedToDevice);
 
-            packetService.emit(outboundPacket);
+            for(Host ho:prova){
+                Host otherHost = getHostById(ho.id().toString());
+                PortNumber porta=otherHost.location().port();
+                ports.add(porta);
+            }
+        }
+        catch(Exception e){log.info(e.toString());}
+
+        for (PortNumber poor : ports) {
+            if(poor!=sourcePortHost && poor!=PortNumber.LOCAL) {
+                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                        .setIpSrc(IpAddress.valueOf(sourceIpAddress))
+                        .setIpDst(IpAddress.valueOf("255.255.255.255"))
+                        .setOutput(poor).build();
+
+                OutboundPacket outboundPacket = new DefaultOutboundPacket(sendDev.id(),
+                        treatment, ByteBuffer.wrap(packet.serialize()));
+
+                packetService.emit(outboundPacket);
+            }
+            if(poor==sourcePortHost) {
+                List<Port> portsDevice = deviceService.getPorts(sourceHost.location().deviceId());
+                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                        .setIpSrc(IpAddress.valueOf(sourceIpAddress))
+                        .setIpDst(IpAddress.valueOf(groupIp))
+                        .setOutput(portsDevice.get(portsDevice.size()-1).number()).build();
+
+                OutboundPacket outboundPacket = new DefaultOutboundPacket(sendDev.id(),
+                        treatment, ByteBuffer.wrap(packet.serialize()));
+
+                packetService.emit(outboundPacket);
+            }
         }
 
 
@@ -566,15 +574,207 @@ public class SIoTCast implements SIoTCastService {
 
     }
 
-    //TESTING\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+    //GESTISCE L'INDIRIZZO IP MULTICAST
+    protected String  MGroupIpsHandler(String ipSourceRelation){
+        String ipGroup ="224.11.1.2";
 
+        if (mGroupMap.get(ipSourceRelation)!=null){
+            return mGroupMap.get(ipSourceRelation);
+        }
+        else {
+            mGroupMap.put(ipSourceRelation, ipGroup);
+            return mGroupMap.get(ipSourceRelation);
+        }
+    }
+
+    //CREA IL GRUPPO MULTICAST
+    protected void createMulticastGroup(Host virtualHost, String ipGroup) {
+        String multicastGroupIpAddr =ipGroup;
+        String ingressPort= null;
+        String[] ports = null;
+
+        IpAddress virtualHostIp = virtualHost.ipAddresses().iterator().next();
+        McastRoute mRoute = new McastRoute(virtualHostIp,
+                IpAddress.valueOf( multicastGroupIpAddr), McastRoute.Type.STATIC);
+        mcastRouteManager.add(mRoute);
+
+        if (ingressPort != null) {
+            ConnectPoint ingress = ConnectPoint.deviceConnectPoint(ingressPort);
+            mcastRouteManager.addSource(mRoute, ingress);
+        }
+
+        if (ports != null) {
+            for (String egCP : ports) {
+                log.debug("Egress port provided: " + egCP);
+                ConnectPoint egress = ConnectPoint.deviceConnectPoint(egCP);
+                mcastRouteManager.addSink(mRoute, egress);
+            }
+        }
+        log.info("Added the mcast route: "+mRoute.toString());
+    }
+
+    //CREA IL PACCHETTO DA INVIARE NEL CASO SIOTCAST
+    public Ethernet multiPacketCreation (Host sourceHost, String groupIp){
+
+
+        //PAYLOAD
+        String sendString = "SIOT PACKET";
+
+        //PRIORITA' E TTL
+        Integer prior = 1000;
+        Integer iden = 777;
+        Integer ttl = 110;
+
+        //UDP
+        UDP udp = new UDP();
+        udp.setDestinationPort(5001);
+        udp.setSourcePort(33515);
+        udp.setPayload(new Data(sendString.getBytes()));
+
+        //Ethernet
+        String destMAC="01:00:5e:0b:01:02";
+        Ethernet packet = new Ethernet();
+        packet.setSourceMACAddress(sourceHost.mac());
+        packet.setDestinationMACAddress(destMAC);
+        packet.setEtherType(Ethernet.TYPE_IPV4);
+        packet.setPriorityCode(prior.byteValue());
+
+        //IPv4
+        IPv4 ip = new IPv4();
+        ip.setTtl(ttl.byteValue());
+        ip.setIdentification(iden.shortValue());
+        ip.setProtocol(IPv4.PROTOCOL_UDP);
+        String sourceIpAddr = sourceHost.ipAddresses().toString();
+        String sourceIpAddress = sourceIpAddr.substring(1, sourceIpAddr.length() - 1);
+        ip.setDestinationAddress(groupIp);
+        ip.setSourceAddress(sourceIpAddress);
+        ip.setPayload(udp);
+
+        //PACCHETTO
+        packet.setPayload(ip);
+        return packet;
+    }
+
+    //CREA LA FLOWRULE PER IL JOIN A UN GRUPPO
+    public void joinGroupFlowRule(Device dev, Host host, Integer portNumber){
+
+        String ipAddr = host.ipAddresses().toString();
+        String ipAddress = ipAddr.substring(1, ipAddr.length() - 1);
+        TpPort door = TpPort.tpPort(portNumber);
+        TrafficSelector selector = DefaultTrafficSelector.builder()
+                .matchEthType(Ethernet.TYPE_IPV4)
+                .matchIPProtocol(IPv4.PROTOCOL_UDP)
+                .matchIPDst(IpPrefix.valueOf(ipAddress+"/32"))
+                .matchUdpDst(door)
+                .build();
+
+        TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                //.setIpDst(IpAddress.valueOf("10.0.2.2"))
+                //.setEthDst(MacAddress.ONOS)
+                .setOutput(PortNumber.portNumber(81))
+                //.drop()
+                .build();
+
+        FlowRule fru = DefaultFlowRule.builder()
+                .forDevice(dev.id())
+                .withSelector(selector)
+                .withTreatment(treatment)
+                .withPriority(44000)
+                .makePermanent()
+                .fromApp(appId)
+                .build();
+
+        flowRuleService.applyFlowRules(fru);
+
+     /*   TrafficSelector selector2 = DefaultTrafficSelector.builder()
+                .matchEthType(Ethernet.TYPE_IPV4)
+                .matchIPDst(IpPrefix.valueOf("10.0.2.2/32"))
+                .build();
+
+        TrafficTreatment treatment2 = DefaultTrafficTreatment.builder()
+                .drop()
+                .build();
+
+        FlowRule fru2 = DefaultFlowRule.builder()
+                .forDevice(dev.id())
+                .withSelector(selector2)
+                .withTreatment(treatment2)
+                .withPriority(44000)
+                .makePermanent()
+                .fromApp(appId)
+                .build();
+        flowRuleService.applyFlowRules(fru2);*/
+    }
+
+    //CREA LA FLOWRULE PER IL FIREWALL
+    public void firewallFlowRule(HostId sourceHostId, Host destinationHost){
+        Device dev= deviceConnectedToHost(sourceHostId.toString());
+        Host sourceHoast =getHostById(sourceHostId.toString());
+        String sourceHostIdString=destinationHost.id().toString();
+        try {
+            if (sourceHostIdString.equals(sourceHostId.toString())) {
+                String ipAddr = sourceHoast.ipAddresses().toString();
+                String ipAddress = ipAddr.substring(1, ipAddr.length() - 1);
+
+                TrafficSelector selector = DefaultTrafficSelector.builder()
+                        .matchEthType(Ethernet.TYPE_IPV4)
+                        .matchIPProtocol(IPv4.PROTOCOL_TCP)
+                        .matchIPProtocol(IPv4.PROTOCOL_UDP)
+                        .matchIPProtocol(IPv4.PROTOCOL_ICMP)
+                        .matchIPDst(IpPrefix.valueOf(ipAddress + "/32"))
+                        .build();
+
+                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                        .drop()
+                        .build();
+
+                FlowRule fru = DefaultFlowRule.builder()
+                        .forDevice(dev.id())
+                        .withSelector(selector)
+                        .withTreatment(treatment)
+                        .withPriority(40000)
+                        .makePermanent()
+                        .fromApp(appId)
+                        .build();
+                flowRuleService.applyFlowRules(fru);
+            } else {
+
+                String ipAddr = destinationHost.ipAddresses().toString();
+                String ipAddress = ipAddr.substring(1, ipAddr.length() - 1);
+                PortNumber portNumber = sourceHoast.location().port();
+
+
+                TrafficSelector selector = DefaultTrafficSelector.builder()
+                        .matchEthType(Ethernet.TYPE_IPV4)
+                        .matchIPSrc(IpPrefix.valueOf(ipAddress + "/32"))
+                        .build();
+                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                        .setOutput(portNumber)
+                        .build();
+
+                FlowRule frule = DefaultFlowRule.builder()
+                        .forDevice(dev.id())
+                        .withSelector(selector)
+                        .withTreatment(treatment)
+                        .withPriority(40010)
+                        .makePermanent()
+                        .fromApp(appId)
+                        .build();
+                flowRuleService.applyFlowRules(frule);
+            }
+        }
+        catch (Exception e){log.info(e.toString());}
+
+    }
+
+    //TESTING\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
    private class SwitchPacketProcesser implements PacketProcessor
     {
-
         @Override
         public void process(PacketContext pc) {
-
-            String prova= "10.0.2.1";
+            Boolean firewall =false;
+            String mGroupCreationIp= "10.0.2.1";
+           // String mGroupJoinIp="10.0.0.2";
 
             try {
                 InboundPacket pkt = pc.inPacket();
@@ -587,8 +787,148 @@ public class SIoTCast implements SIoTCastService {
                 String destPort = tcpPortDestField[1].substring(0, tcpPortDestField[1].length() - 1);
                 int port = Integer.parseInt(destPort);
 
-               if (destIp.equals(prova)) {
-                   switch (port) {
+               if (destIp.equals(mGroupCreationIp)) {
+                   String hop= null;
+                   String portString= Integer.toString(port);
+                   String portA= portString.substring(0,2);
+                   Integer portAInt=Integer.parseInt(portA);
+                   String portB=portString.substring(3,4);
+                   Integer portBInt=Integer.parseInt(portB);
+
+                   switch (portAInt) {
+                       case 51: relationship="OOR";
+                           break;
+                       case 52: relationship="SOR";
+                           break;
+                       case 53: relationship="CWOR";
+                           break;
+                       case 54: relationship="CLOR";
+                           break;
+                       case 41: relationship="OOR"; firewall=true;
+                           break;
+                       case 42: relationship="SOR"; firewall=true;
+                           break;
+                       case 43: relationship="CWOR"; firewall=true;
+                           break;
+                       case 44: relationship="CLOR"; firewall=true;
+                           break;
+                   }
+                   switch (portBInt) {
+                       case 01: hop="1";
+                           break;
+                       case 02: hop="2";
+                           break;
+                       case 03: hop="3";
+                           break;
+                       case 04: hop="4";
+                           break;
+                   }
+                   if(firewall==false){
+                       log.info("RICEZIONE DEL PACCHETTO DI CREAZIONE DELLA RELAZIONE "+relationship+" PER L'HOST "+sourceIp+" A DISTANZA "+hop);
+                       log.info("Now Creating the SIot Multicast Group.....");
+                       HostId sourceHostId=null;
+                       for(Map.Entry entry: hostIdentificationMap.entrySet()){
+                           if(sourceIp.equals(entry.getValue())){
+                               sourceHostId = HostId.hostId(entry.getKey().toString());
+                               break;
+                           }
+                       }
+                       int areas =getAreasFromId(sourceHostId.toString());
+                       ids=getIpsFromId(sourceHostId.toString(),areas,relationship,hop);
+                       String ipGroup = MGroupIpsHandler( sourceHostId+relationship);
+                       List<Device> allDevice = new ArrayList<>();
+                       List<Device> allDevice2 = new ArrayList<>();
+                       Host sourceHost=getHostById(sourceHostId.toString());
+                       publishers.add(sourceHost.id().toString());
+                       mapPublisherGroup.put(sourceHost, ipGroup+" "+relationship);
+
+                       for( Device dev :deviceService.getAvailableDevices()) {
+                           allDevice.add(dev);
+                           allDevice2.add(dev);
+                           joinGroupFlowRule(dev,sourceHost,port);
+                       }
+                       for (Host ho:hostService.getHosts()){
+                           Device dev = deviceConnectedToHost(ho.id().toString());
+                           allDevice.remove(dev); //SONO I DEVICE CENTRALI NON COLLEGATI A HOSTS
+                       }
+
+                       for(Device dev:allDevice) {
+                           allDevice2.remove(dev);//SONO I DEVICE COLLEGATI AGLI HOST
+                       }
+
+                       for (String id: ids){
+                           Host host = getHostById(id);
+                           Device dev = deviceConnectedToHost(id);
+                           collectionOfDevices.add(dev.id());
+                           PortNumber portNumber=host.location().port();
+                           mapHostPort.put(host.id(), portNumber);
+                         //virtualHost =getVirtualHostFromDevice(dev.id());
+                         //createMulticastGroup(virtualHost,ipGroup);
+                           createMulticastGroup(host,ipGroup);
+                           allDevice2.remove(dev);
+                       }
+
+
+                       for (DeviceId devId: collectionOfDevices) {
+                           creazioneIntent(devId, ipGroup,mapHostPort, allDevice2);
+                       }
+
+                       log.info("....SIot Multicast Group created!");
+                       Thread.sleep(5000);
+                       Ethernet multiPacket=multiPacketCreation(sourceHost, ipGroup );
+                       sendMultiPacketToHost(multiPacket,sourceHost,ipGroup,ids);
+                       log.info(mapPublisherGroup.toString());
+                   }
+                   if(firewall==true) {
+                       log.info("RICEZIONE DEL PACCHETTO DI CREAZIONE REGOLA DI FIREWALL: \n RELAZIONE "+relationship+" PER L'HOST "+sourceIp+" A DISTANZA "+hop);
+
+                       HostId sourceHostId=null;
+                       for(Map.Entry entry: hostIdentificationMap.entrySet()){
+                           if(sourceIp.equals(entry.getValue())){
+                               sourceHostId = HostId.hostId(entry.getKey().toString());
+                               break;
+                           }
+                       }
+                       int areas =getAreasFromId(sourceHostId.toString());
+                       ids=getIpsFromId(sourceHostId.toString(),areas,relationship,hop);
+
+                       for (String id: ids){
+                           firewallFlowRule(sourceHostId, getHostById(id));
+                       }
+                       log.info("CREAZIONE REGOLA DI FIREWALL ESEGUITA");
+                   }
+               }
+
+             /*   if  (sourceIp.equals(mGroupJoinIp)) {
+                   //log.info(pc.inPacket().toString());
+                    String portString= Integer.toString(port);
+                    String portA= portString.substring(0,1);
+                    Integer portAInt=Integer.parseInt(portA);
+                    String portB=portString.substring(2,3);
+                    Integer portBInt=Integer.parseInt(portB);
+
+                    switch (portAInt) {
+                        case 51: relationship="OOR";
+                            break;
+                        case 50: relationship="SOR";
+                            break;
+                        case 53: relationship="CWOR";
+                            break;
+                        case 54: relationship="CLOR";
+                            break;
+                    }
+                    switch (portBInt) {
+                        case 01: hop="1";
+                            break;
+                        case 02: hop="SOR";
+                            break;
+                        case 03: hop="CWOR";
+                            break;
+                        case 04: hop="CLOR";
+                            break;
+                    }
+
+                    switch (port) {
                        case 5001: relationship="OOR";
                        break;
                        case 5002: relationship="SOR";
@@ -598,11 +938,58 @@ public class SIoTCast implements SIoTCastService {
                        case 5004: relationship="CLOR";
                        break;
                    }
-                   log.info("RICEZIONE DEL PACCHETTO DI CREAZIONE DELLA RELAZIONE "+relationship+" PER L'HOST "+sourceIp );
-                }
+                    log.info("RICEZIONE DEL PACCHETTO DI JOIN AL GRUPPO "+relationship+" PER IL PUBISHER "+sourceIp );
+                    HostId destHostId=null;
+                    for(Map.Entry entry: hostIdentificationMap.entrySet()) {
+                        if (destIp.equals(entry.getValue())) {
+                            destHostId = HostId.hostId(entry.getKey().toString());
+                            break;
+                        }
+                    }
+                    log.info(destHostId.toString());
+
+                   /*
+                    HostId sourceHostId=null;
+                    for(Map.Entry entry: hostIdentificationMap.entrySet()){
+                        if(sourceIp.equals(entry.getValue())){
+                            sourceHostId = HostId.hostId(entry.getKey().toString());
+                            break;
+                        }
+                    }
+                    String ipGroup = MGroupIpsHandler( sourceHostId+relationship);
+                    List<Device> allDevice = new ArrayList<>();
+                    Host sourceHost=getHostById(sourceHostId.toString());
+
+
+                    for( Device dev :deviceService.getAvailableDevices()) {
+                        allDevice.add(dev);
+                    }
+                    for (String id: ids){
+                        Host host = getHostById(id);
+                        Device dev = deviceConnectedToHost(id);
+                        allDevice.remove(dev);
+                        collectionOfDevices.add(dev.id());
+                        PortNumber portNumber=host.location().port();
+                        mapHostPort.put(host.id(), portNumber);
+                        virtualHost =getVirtualHostFromDevice(dev.id());
+                        createMulticastGroup(virtualHost,ipGroup);
+                    }
+
+                    for (DeviceId devId: collectionOfDevices) {
+                        creazioneIntent(devId, ipGroup,mapHostPort,allDevice);
+                    }
+                    log.info("....SIot Multicast Group created!");
+
+                    Thread.sleep(5000);
+                    Ethernet multiPacket=multiPacketCreation(sourceHost, ipGroup );
+                    sendMultiPacketToHost(multiPacket,sourceHost,ipGroup);
+                    log.info(mapPublisherGroup.toString());
+                }*/
+
                 else{ return; }
             }
-            catch(Exception e) {return;}}
+            catch(Exception e) {
+                return;}}
 
             /*InboundPacket pkt = pc.inPacket();
            log.info(pkt.toString());
@@ -672,17 +1059,14 @@ public class SIoTCast implements SIoTCastService {
                 pc.treatmentBuilder().setOutput(PortNumber.FLOOD);
                 pc.send();
             }
-        }*/
+        }
 
 
         private void initMacTable(ConnectPoint cp) {
             macTables.putIfAbsent(cp.deviceId(), Maps.newConcurrentMap());
 
-        }
+        }*/
     }
-
-
-
 
 }
 
