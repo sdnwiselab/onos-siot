@@ -32,7 +32,7 @@
 			<completers>
 	        	<ref component-id="channelIdCompleter"/>
 			<ref component-id="relationCompleter"/>
-			<ref component-id="publisherCompleter"/>
+		
 	        	<null/>
 	    	</completers>
 		</command>
@@ -49,6 +49,6 @@
 	</command-bundle>
 	<bean id="channelIdCompleter" class="com.github.sdnwiselab.siot.cli.ChannelIdCompleter"/>
 	<bean id="relationCompleter" class="com.github.sdnwiselab.siot.cli.RelationCompleter"/>
-	<bean id="publisherCompleter" class="com.github.sdnwiselab.siot.cli.PublisherCompleter"/>
+
 	
 </blueprint>

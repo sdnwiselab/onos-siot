@@ -14,11 +14,10 @@ import org.onosproject.net.host.HostService;
         description = "Join a Publisher"
 )
 public class SubscribeGroupCommand extends AbstractShellCommand {
-
     @Argument(
             index = 0,
             name = "channelId",
-            description = "channel ID of source",
+            description = "Host ID of source",
             required = false,
             multiValued = false
     )
@@ -33,50 +32,74 @@ public class SubscribeGroupCommand extends AbstractShellCommand {
     private String relation = null;
     @Argument(
             index = 2,
-            name = "publisher",
-            description = "desired publisher",
+            name = "hops",
+            description = "desired social distance",
             required = false,
             multiValued = false
     )
-    private String publisher = null;
+    private String hop = null;
 
     private HostService hostService;
     private SIoTCastService service;
 
     protected void execute() {
-
+        try {
             this.service = get(SIoTCastService.class);
             this.hostService= get(HostService.class);
-            Host sourceHost= service.getHostById(this.channelId);
-            Host destinationHost = service.getHostById(this.publisher);
-            Ethernet uniPacket= packetForTheSIOTJoin(sourceHost,destinationHost); //CASO DI JOIN AL GRUPPO
-            this.service.sendUniPacketToHost(uniPacket,sourceHost,destinationHost);
 
+
+            Host sourceHost= service.getHostById(this.channelId);
+            Ethernet uniPacket= packetForTheSIOTJoin(sourceHost); //CASO DI CREAZIONE DEL GRUPPO
+            this.service.sendPacketForFlowRule(uniPacket,sourceHost);
+        }
+        catch (Exception var) {
+            var.printStackTrace();
+        }
     }
 
     //RELATIONSHIP SELECTOR
-    public int getTypeOfRelationship(String relation) {
-        int port;
+    public String getTypeOfRelationship(String relation) {
+        String portA;
         switch (relation) {
-            case "OOR": port=5001;
+            case "OOR": portA="31";
                 break;
-            case "SOR": port=5002;
+            case "SOR": portA="32";
                 break;
-            case "CWOR": port=5003;
+            case "CWOR": portA="33";
                 break;
-            case "CLOR": port=5004;
+            case "CLOR": portA="34";
                 break;
             default:
                 throw new IllegalArgumentException("Invalid relationship");
         }
-        return port;
+        return portA;
     }
 
-    //CREA IL PACCHETTO DA INVIARE PER LA GENERAZIONE DEL GRUPPO MULTICAST SIOT
-    public Ethernet packetForTheSIOTJoin (Host sourceHost, Host destinationHost){
-        int port=getTypeOfRelationship(relation);
+    //HOPS SELECTOR
+    public String getNumberOfHop(String hop) {
+        String portB;
+        switch (hop) {
+            case "1": portB="01";
+                break;
+            case "2": portB="02";
+                break;
+            case "3": portB="03";
+                break;
+            case "4": portB="04";
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid number of hops");
+        }
+        return portB;
+    }
+
+    //CREA IL PACCHETTO DA INVIARE PER L'ASSOCIAZIONE AD UN PUBLISHER
+    public Ethernet packetForTheSIOTJoin (Host sourceHost){
+        String portA=getTypeOfRelationship(relation);
+        String portB=getNumberOfHop(hop);
+        int port= Integer.parseInt(portA+portB);
         //PAYLOAD
-        String sendString = "SIOT JOIN PACKET";
+        String sendString = "JOIN PUBLISHER";
 
         //PRIORITA' E TTL
         Integer prior = 1000;
@@ -92,7 +115,7 @@ public class SubscribeGroupCommand extends AbstractShellCommand {
         //ETHERNET
         Ethernet packet = new Ethernet();
         packet.setSourceMACAddress(sourceHost.mac());
-        packet.setDestinationMACAddress(destinationHost.mac());
+        packet.setDestinationMACAddress(MacAddress.valueOf("A5:23:05:00:00:01"));
         packet.setEtherType(Ethernet.TYPE_IPV4);
         packet.setPriorityCode(prior.byteValue());
 
@@ -104,9 +127,8 @@ public class SubscribeGroupCommand extends AbstractShellCommand {
         ip.setProtocol(IPv4.PROTOCOL_UDP);
         String sourceIpAddr = sourceHost.ipAddresses().toString();
         String sourceIpAddress = sourceIpAddr.substring(1, sourceIpAddr.length() - 1);
-        String destinationIpAddr = destinationHost.ipAddresses().toString();
-        String destinationIpAddress = destinationIpAddr.substring(1, sourceIpAddr.length() - 1);
-        ip.setDestinationAddress(destinationIpAddress);
+        String destIpAddress =("151.97.13.77");
+        ip.setDestinationAddress(destIpAddress);
         ip.setSourceAddress(sourceIpAddress);
         ip.setPayload(udp);
 

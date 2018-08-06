@@ -49,11 +49,9 @@ public class GetRelationsByIdCommand extends AbstractShellCommand {
 
     private HostService hostService;
     private SIoTCastService service;
-    private List<String> ids= new ArrayList<>();
 
     protected void execute() {
         try {
-            log.info(relation);
             this.service = get(SIoTCastService.class);
             this.hostService= get(HostService.class);
            /* for(Host host: hostService.getHosts()){
@@ -117,48 +115,6 @@ public class GetRelationsByIdCommand extends AbstractShellCommand {
         return portB;
     }
 
-    //CREA IL PACCHETTO DA INVIARE NEL CASO UNICAST
-    public Ethernet packetCreation (Host sourceHost, Host destinationHost){
-
-        //PAYLOAD
-        String sendString = "SIOT PACKET";
-
-        //PRIORITA' E TTL
-        Integer prior = 1000;
-        Integer iden = 777;
-        Integer ttl = 110;
-
-        //UDP
-        UDP udp = new UDP();
-        udp.setDestinationPort(5001);
-        udp.setSourcePort(33515);
-        udp.setPayload(new Data(sendString.getBytes()));
-
-        //ETHERNET
-        Ethernet packet = new Ethernet();
-        packet.setSourceMACAddress(sourceHost.mac());
-        packet.setDestinationMACAddress(destinationHost.mac());
-        packet.setEtherType(Ethernet.TYPE_IPV4);
-        packet.setPriorityCode(prior.byteValue());
-
-        //IPv4
-        IPv4 ip = new IPv4();
-        ip.setTtl(ttl.byteValue());
-        ip.setIdentification(iden.shortValue());
-        ip.setProtocol(IPv4.PROTOCOL_UDP);
-        String sourceIpAddr = sourceHost.ipAddresses().toString();
-        String sourceIpAddress = sourceIpAddr.substring(1, sourceIpAddr.length() - 1);
-        String destIpAddr = destinationHost.ipAddresses().toString();
-        String destIpAddress = destIpAddr.substring(1, destIpAddr.length() - 1);
-        ip.setDestinationAddress(destIpAddress);
-        ip.setSourceAddress(sourceIpAddress);
-        ip.setPayload(udp);
-
-        //PACCHETTO
-        packet.setPayload(ip);
-        return packet;
-    }
-
     //CREA IL PACCHETTO DA INVIARE PER LA GENERAZIONE DEL GRUPPO MULTICAST SIOT
     public Ethernet packetForTheSIOTFlowRule (Host sourceHost){
        String portA=getTypeOfRelationship(relation);
@@ -203,6 +159,51 @@ public class GetRelationsByIdCommand extends AbstractShellCommand {
         return packet;
 
     }
+
+
+    /* *************************************UNUSED************************************************************************
+    //CREA IL PACCHETTO DA INVIARE NEL CASO UNICAST
+    public Ethernet packetCreation (Host sourceHost, Host destinationHost){
+
+        //PAYLOAD
+        String sendString = "SIOT PACKET";
+
+        //PRIORITA' E TTL
+        Integer prior = 1000;
+        Integer iden = 777;
+        Integer ttl = 110;
+
+        //UDP
+        UDP udp = new UDP();
+        udp.setDestinationPort(5001);
+        udp.setSourcePort(33515);
+        udp.setPayload(new Data(sendString.getBytes()));
+
+        //ETHERNET
+        Ethernet packet = new Ethernet();
+        packet.setSourceMACAddress(sourceHost.mac());
+        packet.setDestinationMACAddress(destinationHost.mac());
+        packet.setEtherType(Ethernet.TYPE_IPV4);
+        packet.setPriorityCode(prior.byteValue());
+
+        //IPv4
+        IPv4 ip = new IPv4();
+        ip.setTtl(ttl.byteValue());
+        ip.setIdentification(iden.shortValue());
+        ip.setProtocol(IPv4.PROTOCOL_UDP);
+        String sourceIpAddr = sourceHost.ipAddresses().toString();
+        String sourceIpAddress = sourceIpAddr.substring(1, sourceIpAddr.length() - 1);
+        String destIpAddr = destinationHost.ipAddresses().toString();
+        String destIpAddress = destIpAddr.substring(1, destIpAddr.length() - 1);
+        ip.setDestinationAddress(destIpAddress);
+        ip.setSourceAddress(sourceIpAddress);
+        ip.setPayload(udp);
+
+        //PACCHETTO
+        packet.setPayload(ip);
+        return packet;
+    }
+*/
 
 }
 
